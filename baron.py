@@ -13,6 +13,7 @@ CODES_RELOAD_TIME = 10 # seconds
 import threading, time, signal, sys, socket
 from optparse import OptionParser
 import serial
+import daemon
 
 codes = []
 codes_path = ''
@@ -103,16 +104,17 @@ def load_codes():
         print "Retaining old code list, unknown error: ", sys.exc_info()[0]
         return None
 
-parser = OptionParser()
-parser.add_option('-p', '--port', default='/dev/pts/0', dest='port',
-                   help='a serial port to communicate with')
-parser.add_option('-c', '--codefile', default='codes.txt', dest='codefile',
-                    help='a file containing a list of valid code numbers, separated by carriage returns.')
-(options, args) = parser.parse_args()
-serial_path = options.port
-codes_path = options.codefile
-print "Starting Baron..."                   
-reload_thread = threading.Thread(target=reload_loop)
-door_thread = threading.Thread(target=door_loop)
-reload_thread.start()
-door_thread.start()
+with daemon.DaemonContext():
+    parser = OptionParser()
+    parser.add_option('-p', '--port', default='/dev/pts/0', dest='port',
+                      help='a serial port to communicate with')
+    parser.add_option('-c', '--codefile', default='codes.txt', dest='codefile',
+                      help='a file containing a list of valid code numbers, separated by carriage returns.')
+    (options, args) = parser.parse_args()
+    serial_path = options.port
+    codes_path = options.codefile
+    print "Starting Baron..."                   
+    reload_thread = threading.Thread(target=reload_loop)
+    door_thread = threading.Thread(target=door_loop)
+    reload_thread.start()
+    door_thread.start()
