@@ -96,10 +96,14 @@ def load_codes():
         new_codes = []
         f = open(codes_path, 'r')
         for line in f:
+            line = line.split("\n", 1)[0]
             line = line.split('#', 1)[0] # ignore comments, delineated by #
             entry = line.split(' ', 1)[0]
             if entry.isdigit() and len(entry) >= 4:
                 new_codes.append(entry)
+                log.write("Adding code [" + entry + "]\n")
+            else:
+                log.write("Bad code [" + entry + "]\n")
         return new_codes
     except:
         log.write("Retaining old code list, unknown error: " + sys.exc_info()[0] + "\n")
