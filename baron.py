@@ -15,6 +15,7 @@ from optparse import OptionParser
 import serial
 import daemon
 
+log = 0 # make global
 codes = []
 codes_path = ''
 serial_path = ''
@@ -39,7 +40,7 @@ def chat_with_gate(message): #stolen from NB api
 def door_loop():
     global codes, codes_path, serial_path
     while True:
-        print "Waiting for input from keypad"
+        log.write("Waiting for input from keypad\n")
         try:
             keypad = serial.Serial(serial_path, 300, bytesize=serial.EIGHTBITS,
                     parity=serial.PARITY_NONE,     
@@ -52,7 +53,7 @@ def door_loop():
             if digits.isdigit():
                 keypad.timeout=5 #give 5 seconds after last input
                 while len(digits) < 7 and digits not in codes:
-                    print "entered: " + digits
+                    log.write("entered: " + digits + "\n")
                     new_digit = keypad.read(1)
                     if new_digit.isdigit():
                         digits += new_digit
@@ -61,10 +62,10 @@ def door_loop():
                 if digits in codes:
                     gate_message = chat_with_gate("OPEN!")
                     if 'Acknowledged' in gate_message:                        
-                        print "success, gate opening"
+                        log.write("success, gate opening\n")
                         keypad.write('GH') #green led, happy sound
                     else:
-                        print "error with the gate: " + gate_message
+                        log.write("error with the gate: " + gate_message + "\n")
                         keypad.write('SR') #sad sound, red led
                         time.sleep(0.2)
                         keypad.write('QSR') #quiet, sad sound, red led
@@ -72,12 +73,12 @@ def door_loop():
                         keypad.write('QSR') #quiet, sad sound, red led
                 else:
                     keypad.write('SR') #sad sound, red led
-                    print "invalid code, gate not opening"
+                    log.write("invalid code, gate not opening\n")
         except serial.serialutil.SerialException as err:
-            print "Failed to connect to serial port " + serial_path
+            log.write("Failed to connect to serial port " + serial_path + "\n")
             time.sleep(5)
         except: #gotta catch 'em all
-            print "Unknown keypad exception, restarting: ", sys.exc_info()[0]
+            log.write("Unknown keypad exception, restarting: " + sys.exc_info()[0] +"\n")
             time.sleep(5)
 
 def reload_loop():
@@ -101,20 +102,23 @@ def load_codes():
                 new_codes.append(entry)
         return new_codes
     except:
-        print "Retaining old code list, unknown error: ", sys.exc_info()[0]
+        log.write("Retaining old code list, unknown error: " + sys.exc_info()[0] + "\n")
         return None
 
-with daemon.DaemonContext():
-    parser = OptionParser()
-    parser.add_option('-p', '--port', default='/dev/pts/0', dest='port',
-                      help='a serial port to communicate with')
-    parser.add_option('-c', '--codefile', default='codes.txt', dest='codefile',
-                      help='a file containing a list of valid code numbers, separated by carriage returns.')
-    (options, args) = parser.parse_args()
-    serial_path = options.port
-    codes_path = options.codefile
-    print "Starting Baron..."                   
-    reload_thread = threading.Thread(target=reload_loop)
-    door_thread = threading.Thread(target=door_loop)
-    reload_thread.start()
-    door_thread.start()
+parser = OptionParser()
+parser.add_option('-p', '--port', default='/dev/pts/0', dest='port',
+                  help='a serial port to communicate with')
+parser.add_option('-c', '--codefile', default='codes.txt', dest='codefile',
+                  help='a file containing a list of valid code numbers, separated by carriage returns.')
+parser.add_option('-l', '--logfile', default='/tmp/baron.log', dest='logfile',
+                  help='log file (default /tmp/baron.log)')
+(options, args) = parser.parse_args()
+serial_path = options.port
+codes_path = options.codefile
+logfile = options.logfile
+log = open(logfile, 'w', 0) # 0 == unbuffered
+log.write("Starting Baron...\n")
+reload_thread = threading.Thread(target=reload_loop)
+door_thread = threading.Thread(target=door_loop)
+reload_thread.start()
+door_thread.start()
