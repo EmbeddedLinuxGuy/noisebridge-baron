@@ -1,7 +1,12 @@
+# Every line starting with a 4-7 digit number is a code.
+# Comments are delineated by #s
+# Everything else is ignored.
+
 30924 #3424
 #421242
 fsd   fsdfklj 32
 3944239l
+3425232
 ;dsk
 ;lfk32;l
 kfj23 r;lj 23;lkrj 123lr
