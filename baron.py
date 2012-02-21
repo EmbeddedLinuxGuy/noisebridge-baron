@@ -75,8 +75,9 @@ def door_loop():
                     keypad.write('SR') #sad sound, red led
                     log.write("invalid code, gate not opening\n")
         except serial.serialutil.SerialException as err:
-            log.write("Failed to connect to serial port " + serial_path + "\n")
+            log.write("Failed to connect to serial port " + serial_path + ", restarting\n")
             time.sleep(5)
+            sys.exit(1)
         except: #gotta catch 'em all
             log.write("Unknown keypad exception, restarting: " + sys.exc_info()[0] +"\n")
             time.sleep(5)
