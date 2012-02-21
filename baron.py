@@ -13,12 +13,12 @@ CODES_RELOAD_TIME = 10 # seconds
 import threading, time, signal, sys, socket
 from optparse import OptionParser
 import serial
-import daemon
 
 log = 0 # make global
 codes = []
 codes_path = ''
 serial_path = ''
+keypad = 0
 
 def chat_with_gate(message): #stolen from NB api
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -38,17 +38,10 @@ def chat_with_gate(message): #stolen from NB api
     return buf
 
 def door_loop():
-    global codes, codes_path, serial_path
+    global codes, codes_path, serial_path, keypad
     while True:
         log.write("Waiting for input from keypad\n")
         try:
-            keypad = serial.Serial(serial_path, 300, bytesize=serial.EIGHTBITS,
-                    parity=serial.PARITY_NONE,     
-                    stopbits=serial.STOPBITS_ONE, 
-                    timeout=60, # restart this whole thing every 60 seconds, in case something is confused
-                    xonxoff=0,              
-                    rtscts=0,
-                    writeTimeout=10) #writes should never timeout, but just in case...
             digits = keypad.read(1)
             if digits.isdigit():
                 keypad.timeout=5 #give 5 seconds after last input
@@ -74,10 +67,6 @@ def door_loop():
                 else:
                     keypad.write('SR') #sad sound, red led
                     log.write("invalid code, gate not opening\n")
-        except serial.serialutil.SerialException as err:
-            log.write("Failed to connect to serial port " + serial_path + ", restarting\n")
-            time.sleep(5)
-            sys.exit(1)
         except: #gotta catch 'em all
             log.write("Unknown keypad exception, restarting: " + sys.exc_info()[0] +"\n")
             time.sleep(5)
@@ -121,8 +110,30 @@ parser.add_option('-l', '--logfile', default='/tmp/baron.log', dest='logfile',
 serial_path = options.port
 codes_path = options.codefile
 logfile = options.logfile
+
 log = open(logfile, 'w', 0) # 0 == unbuffered
+if log == 0:
+    print "Can't log, dying"
+    sys.exit(1)
 log.write("Starting Baron...\n")
+
+try:
+    keypad = serial.Serial(serial_path, 300, bytesize=serial.EIGHTBITS,
+                           parity=serial.PARITY_NONE,     
+                           stopbits=serial.STOPBITS_ONE, 
+                           timeout=60, # restart this whole thing every 60 seconds, in case something is confused
+                           xonxoff=0,              
+                           rtscts=0,
+                           writeTimeout=10) #writes should never timeout, but just in case...
+except serial.serialutil.SerialException as err:
+    log.write("Failed to connect to serial port " + serial_path + ", exiting\n")
+    time.sleep(5)
+    sys.exit(1)
+except:
+    log.write("Unknown serial open exception, exiting: " + sys.exc_info()[0] +"\n")
+    time.sleep(5)
+    sys.exit(1)
+    
 reload_thread = threading.Thread(target=reload_loop)
 door_thread = threading.Thread(target=door_loop)
 reload_thread.start()
