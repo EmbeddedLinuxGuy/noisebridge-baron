@@ -20,22 +20,28 @@ codes_path = ''
 serial_path = ''
 keypad = 0
 
-def chat_with_gate(message): #stolen from NB api
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    port = 30012
+
+import urllib,urllib2, json
+gate_endpoint = 'http://api.noisebridge.net/gate/'
+open_command = {'open' : 1 }
+def open_gate(endpoint = gate_endpoint, command = open_command):
+    results = None
     try:
-        s.connect(('minotaur.noise', port))
-    except socket.error:
-        return "Failed: Could not connect"
-    data = message
-    s.sendall(data)
-    s.shutdown(1)
-    s.settimeout(5)
-    try:
-        buf = s.recv(2048)
-    except socket.timeout:
-        buf = "Failed: No response"
-    return buf
+        results = urllib2.urlopen(endpoint,
+                urllib.urlencode(command)).read()
+        return json.loads(results)
+    except urllib2.HTTPError, e:
+        return { 'error' :  True, 
+                'message': "HTTP Error %d when calling  api.noisebridge.net/gate/ : %s"
+                % (e.code, e.read()) }
+    except urllib2.URLError, e:
+        return { 'error' :  True, 
+                'message': "Could not reach api.noisebridge.net/gate/ data is %d"
+                % e.args }
+    except ValueError:
+        return { 'error' : True, 
+                'message' : 'Could not decode JSON from api.noisebridge.net/gate/ %r'
+                % results }
 
 def door_loop():
     global codes, codes_path, serial_path, keypad
@@ -53,12 +59,12 @@ def door_loop():
                     else: # they hit #, *, or we timed out
                         break
                 if digits in codes:
-                    gate_message = chat_with_gate("OPEN!")
-                    if 'Acknowledged' in gate_message:                        
+                    gate_status = open_gate()
+                    if gate_status.get('open', False):
                         log.write("success, gate opening\n")
                         keypad.write('GH') #green led, happy sound
                     else:
-                        log.write("error with the gate: " + gate_message + "\n")
+                        log.write("error with the gate: " + gate_status.open('message', 'No message received from gate') + "\n")
                         keypad.write('SR') #sad sound, red led
                         time.sleep(0.2)
                         keypad.write('QSR') #quiet, sad sound, red led
