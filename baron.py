@@ -13,6 +13,8 @@ CODES_RELOAD_TIME = 10 # seconds
 import threading, time, signal, sys, socket
 from optparse import OptionParser
 import serial
+import subprocess
+import random
 
 log = 0 # make global
 codes = []
@@ -43,6 +45,20 @@ def open_gate(endpoint = gate_endpoint, command = open_command):
                 'message' : 'Could not decode JSON from api.noisebridge.net/gate/ %r'
                 % results }
 
+sayings = [
+    "Greetings Noise bridge, Someone is at the door",
+]
+
+def dial_operator():
+    words = [line.strip() for line in open('/usr/local/share/baron/noisebridge-baron/actors.txt')]
+
+    cmd = [ 'curl', '-s', '-X', 'POST', '-d',
+            'say="Oh my god! '+ random.choice(words)  +' is at the door!"',
+            'http://api.noisebridge.net/audio/' ]
+    log.write("Invoking subprocess:\n")
+    process = subprocess.call(cmd)
+    log.write("Completed.\n")
+
 def door_loop():
     global codes, codes_path, serial_path, keypad
     while True:
@@ -60,6 +76,10 @@ def door_loop():
         try:
             digits = keypad.read(1)
             if digits.isdigit():
+                if digits == "0":
+                    log.write("Dialing operator:\n")
+                    dial_operator()
+                    log.write("Dialed.\n")
                 keypad.timeout=5 #give 5 seconds after last input
                 while len(digits) < 7 and digits not in codes:
                     log.write("entered: " + digits + "\n")
@@ -122,6 +142,8 @@ parser.add_option('-c', '--codefile', default='codes.txt', dest='codefile',
                   help='a file containing a list of valid code numbers, separated by carriage returns.')
 parser.add_option('-l', '--logfile', default='/tmp/baron.log', dest='logfile',
                   help='log file (default /tmp/baron.log)')
+parser.add_option('-t', '--test', default='no', dest='test', help='test')
+
 (options, args) = parser.parse_args()
 serial_path = options.port
 codes_path = options.codefile
@@ -132,6 +154,10 @@ if log == 0:
     print "Can't log, dying"
     sys.exit(1)
 log.write("Starting Baron...\n")
+
+if options.test == "yes":
+    dial_operator()
+    sys.exit()
 
 try:
     keypad = serial.Serial(serial_path, 300, bytesize=serial.EIGHTBITS,
