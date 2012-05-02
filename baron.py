@@ -41,6 +41,16 @@ def door_loop():
     global codes, codes_path, serial_path, keypad
     while True:
         log.write("Waiting for input from keypad\n")
+        # try:
+        #     keypad.write('Q')
+        #     time.sleep(1)
+        #     alive = keypad.read(6)
+        #     if alive[0:5] == "QUIET":
+        #         log.write("Good, got back QUIET.\n")
+        #     else:
+        #         log.write("Bad, got [" + alive + "]\n")
+        # except:
+        #     log.write("Exception in keypad keepalive.\n")
         try:
             digits = keypad.read(1)
             if digits.isdigit():
@@ -56,7 +66,7 @@ def door_loop():
                     gate_message = chat_with_gate("OPEN!")
                     if 'Acknowledged' in gate_message:                        
                         log.write("success, gate opening\n")
-                        keypad.write('GH') #green led, happy sound
+                        keypad.write('BH') #blue led, happy sound
                     else:
                         log.write("error with the gate: " + gate_message + "\n")
                         keypad.write('SR') #sad sound, red led
@@ -133,6 +143,14 @@ except:
     log.write("Unknown serial open exception, exiting: " + sys.exc_info()[0] +"\n")
     time.sleep(5)
     sys.exit(1)
+
+#for i in range(4):
+#2B    keypad.write('R')
+ #   sleep(10)
+  #  keypad.write('G')
+   # sleep(10)
+    #keypad.write('B')
+    #sleep(10)
     
 reload_thread = threading.Thread(target=reload_loop)
 door_thread = threading.Thread(target=door_loop)
