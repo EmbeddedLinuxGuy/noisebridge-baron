@@ -15,6 +15,7 @@ from optparse import OptionParser
 import serial
 import subprocess
 import random
+import traceback
 
 log = 0 # make global
 codes = []
@@ -45,19 +46,29 @@ def open_gate(endpoint = gate_endpoint, command = open_command):
                 'message' : 'Could not decode JSON from api.noisebridge.net/gate/ %r'
                 % results }
 
-sayings = [
-    "Greetings Noise bridge, Someone is at the door",
+greeting = [
+    "Greetings Noisebridge, "
 ]
 
 def dial_operator():
-    words = [line.strip() for line in open('/usr/local/share/baron/noisebridge-baron/actors.txt')]
+    words = [line.strip() for line in open('/usr/local/share/baron/words')]
 
-    cmd = [ 'curl', '-s', '-X', 'POST', '-d',
-            'say="Oh my god! '+ random.choice(words)  +' is at the door!"',
-            'http://api.noisebridge.net/audio/' ]
-    log.write("Invoking subprocess:\n")
+    cmd = [ 'sshpass', '-p', 'mediacenter', 'ssh',
+            '-o', 'StrictHostKeyChecking=no',
+            '-o', 'UserKnownHostsFile=/dev/null',
+            'mediacenter@horsy', 'mpg123 chime.mp3' ]
     process = subprocess.call(cmd)
-    log.write("Completed.\n")
+
+    gate_status = open_gate()
+    if gate_status.get('open', False):
+        log.write("0 code success\n")
+        keypad.write('GH') #green led, happy sound
+    else:
+        log.write("0 code unknown error\n")
+
+        # log.write("0 code error: " + 
+        #     gate_status.open('message', 'No message received from gate') + "\n")
+        # AttributeError: 'dict' object has no attribute 'open'
 
 def door_loop():
     global codes, codes_path, serial_path, keypad
@@ -94,7 +105,9 @@ def door_loop():
                         log.write("success, gate opening\n")
                         keypad.write('BH') #blue led, happy sound
                     else:
-                        log.write("error with the gate: " + gate_status.open('message', 'No message received from gate') + "\n")
+                        log.write("error with the gate\n")
+                        # gate_status.open('message', 'No message received from gate')
+                        # AttributeError: 'dict' object has no attribute 'open'
                         keypad.write('SR') #sad sound, red led
                         time.sleep(0.2)
                         keypad.write('QSR') #quiet, sad sound, red led
@@ -104,7 +117,8 @@ def door_loop():
                     keypad.write('SR') #sad sound, red led
                     log.write("invalid code, gate not opening\n")
         except: #gotta catch 'em all
-            log.write("Unknown keypad exception, restarting: " + sys.exc_info()[0] +"\n")
+            log.write("Unknown keypad exception, restarting:\n")
+            log.write(traceback.format_exc())
             time.sleep(5)
 
 def reload_loop():
@@ -132,7 +146,8 @@ def load_codes():
                 log.write("Bad code [" + entry + "]\n")
         return new_codes
     except:
-        log.write("Retaining old code list, unknown error: " + sys.exc_info()[0] + "\n")
+        log.write("Retaining old code list, unknown error:\n")
+        log.write(traceback.format_exc())
         return None
 
 parser = OptionParser()
